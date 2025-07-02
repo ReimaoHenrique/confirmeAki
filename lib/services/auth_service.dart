@@ -10,37 +10,8 @@ class AuthService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      // Simulação de chamada de API
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // Simulação de validação
-      if (email == 'user@test.com' && password == '123456') {
-        final user = User(
-          id: '1',
-          name: 'Usuário Teste',
-          email: email,
-          phone: '(11) 99999-9999',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        
-        return {
-          'success': true,
-          'user': user,
-          'token': 'fake_jwt_token_123',
-          'message': 'Login realizado com sucesso',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Email ou senha incorretos',
-        };
-      }
-      
-      // Código real para chamada de API:
-      /*
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
+        Uri.parse('https://jvdpz4zf-3000.brs.devtunnels.ms/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
@@ -48,9 +19,12 @@ class AuthService {
         }),
       );
 
+      // print('🔵 Body: ${response.body}');
+
       final data = jsonDecode(response.body);
-      
-      if (response.statusCode == 200) {
+
+      if (response.statusCode == 201) {
+        // print('🔵 Token recebido: ${data['token']}');
         return {
           'success': true,
           'user': User.fromJson(data['user']),
@@ -60,10 +34,9 @@ class AuthService {
       } else {
         return {
           'success': false,
-          'message': data['message'] ?? 'Erro no login',
+          'message': data['message'] ?? 'Email ou senha incorretos',
         };
       }
-      */
     } catch (e) {
       return {
         'success': false,
@@ -84,7 +57,6 @@ class AuthService {
         email: email,
         phone: phone,
         createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
       );
       
       return {
@@ -133,26 +105,8 @@ class AuthService {
 
   Future<User?> getCurrentUser(String token) async {
     try {
-      // Simulação de validação de token
-      await Future.delayed(const Duration(seconds: 1));
-      
-      if (token.startsWith('fake_jwt_token')) {
-        return User(
-          id: '1',
-          name: 'Usuário Teste',
-          email: 'user@test.com',
-          phone: '(11) 99999-9999',
-          createdAt: DateTime.now().subtract(const Duration(days: 30)),
-          updatedAt: DateTime.now(),
-        );
-      }
-      
-      return null;
-      
-      // Código real para chamada de API:
-      /*
       final response = await http.get(
-        Uri.parse('$baseUrl/auth/me'),
+        Uri.parse('https://jvdpz4zf-3000.brs.devtunnels.ms/api/auth/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -161,11 +115,10 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return User.fromJson(data['user']);
+        final userJson = data['user'];
+        return User.fromJson(userJson);
       }
-      
       return null;
-      */
     } catch (e) {
       return null;
     }
@@ -182,7 +135,6 @@ class AuthService {
         email: email,
         phone: phone,
         createdAt: DateTime.now().subtract(const Duration(days: 30)),
-        updatedAt: DateTime.now(),
       );
       
       return {

@@ -35,6 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       
       if (success && mounted) {
+        // Log para depuração
+        print('Token salvo: \\${authProvider.token}');
         context.go('/home');
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

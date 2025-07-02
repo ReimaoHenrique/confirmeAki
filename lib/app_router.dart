@@ -14,7 +14,7 @@ import 'screens/profile/settings_screen.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/home',
     routes: [
       // Splash Screen
       GoRoute(

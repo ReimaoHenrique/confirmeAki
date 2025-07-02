@@ -4,14 +4,14 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
-  User? _user;
+  String? _token;
   bool _isLoading = false;
   String? _error;
 
-  User? get user => _user;
+  String? get token => _token;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isAuthenticated => _user != null;
+  bool get isAuthenticated => _token != null;
 
   final AuthService _authService = AuthService();
 
@@ -24,15 +24,10 @@ class AuthProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      
       if (token != null) {
-        // Verificar se o token ainda é válido
-        final user = await _authService.getCurrentUser(token);
-        if (user != null) {
-          _user = user;
-        } else {
-          await logout();
-        }
+        _token = token;
+      } else {
+        _token = null;
       }
     } catch (e) {
       _setError('Erro ao verificar autenticação: $e');
@@ -44,16 +39,13 @@ class AuthProvider with ChangeNotifier {
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
-    
     try {
       final result = await _authService.login(email, password);
       if (result['success']) {
-        _user = result['user'];
-        
-        // Salvar token localmente
+        _token = result['token'];
+        print('Token salvo: $_token');
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', result['token']);
-        
+        await prefs.setString('auth_token', _token!);
         notifyListeners();
         return true;
       } else {
@@ -71,16 +63,13 @@ class AuthProvider with ChangeNotifier {
   Future<bool> register(String name, String email, String phone, String password) async {
     _setLoading(true);
     _clearError();
-    
     try {
       final result = await _authService.register(name, email, phone, password);
       if (result['success']) {
-        _user = result['user'];
-        
-        // Salvar token localmente
+        _token = result['token'];
+        print('Token salvo: $_token');
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', result['token']);
-        
+        await prefs.setString('auth_token', _token!);
         notifyListeners();
         return true;
       } else {
@@ -97,12 +86,10 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     _setLoading(true);
-    
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('auth_token');
-      
-      _user = null;
+      _token = null;
       notifyListeners();
     } catch (e) {
       _setError('Erro ao fazer logout: $e');
@@ -111,26 +98,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateProfile(String name, String email, String phone) async {
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      final result = await _authService.updateProfile(name, email, phone);
-      if (result['success']) {
-        _user = result['user'];
-        notifyListeners();
-        return true;
-      } else {
-        _setError(result['message']);
-        return false;
-      }
-    } catch (e) {
-      _setError('Erro ao atualizar perfil: $e');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
+  Future<User?> fetchCurrentUser() async {
+    if (_token == null) return null;
+    return await _authService.getCurrentUser(_token!);
   }
 
   void _setLoading(bool loading) {

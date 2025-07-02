@@ -13,12 +13,27 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _showLoginPrompt = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<RequestProvider>(context, listen: false).loadRequests();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (!authProvider.isAuthenticated) {
+        setState(() {
+          _showLoginPrompt = true;
+        });
+      }
     });
+  }
+
+  void _openLogin() {
+    setState(() {
+      _showLoginPrompt = false;
+    });
+    context.go('/login');
   }
 
   @override
@@ -87,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: CircleAvatar(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
-                    authProvider.user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                    'U',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -100,196 +115,253 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Provider.of<RequestProvider>(context, listen: false).loadRequests();
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Saudação
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, child) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            child: Text(
-                              authProvider.user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Olá, ${authProvider.user?.name.split(' ').first ?? 'Usuário'}!',
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () async {
+              await Provider.of<RequestProvider>(context, listen: false).loadRequests();
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      final isVisitor = !authProvider.isAuthenticated;
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                child: Text(
+                                  isVisitor ? 'V' : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Como posso ajudá-lo hoje?',
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isVisitor ? 'Olá, visitante!' : 'Olá, Usuário!',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isVisitor
+                                          ? 'Faça login para acessar todos os recursos.'
+                                          : 'Como posso ajudá-lo hoje?',
+                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                            color: Colors.grey[600],
+                                          ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Ações principais
-              Text(
-                'Ações Rápidas',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                children: [
-                  _buildActionCard(
-                    context,
-                    icon: Icons.add_circle_outline,
-                    title: 'Nova Solicitação',
-                    subtitle: 'Solicitar verificação',
-                    color: Colors.blue,
-                    onTap: () => context.go('/request-form'),
+                        ),
+                      );
+                    },
                   ),
-                  _buildActionCard(
-                    context,
-                    icon: Icons.list_alt,
-                    title: 'Minhas Solicitações',
-                    subtitle: 'Ver histórico',
-                    color: Colors.green,
-                    onTap: () => context.go('/my-requests'),
-                  ),
-                  _buildActionCard(
-                    context,
-                    icon: Icons.payment,
-                    title: 'Pagamentos',
-                    subtitle: 'Gerenciar pagamentos',
-                    color: Colors.orange,
-                    onTap: () => context.go('/payment'),
-                  ),
-                  _buildActionCard(
-                    context,
-                    icon: Icons.person,
-                    title: 'Perfil',
-                    subtitle: 'Editar informações',
-                    color: Colors.purple,
-                    onTap: () => context.go('/profile'),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Solicitações recentes
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Ações principais
                   Text(
-                    'Solicitações Recentes',
+                    'Ações Rápidas',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => context.go('/my-requests'),
-                    child: const Text('Ver todas'),
+                  
+                  const SizedBox(height: 16),
+                  
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.2,
+                    children: [
+                      _buildActionCard(
+                        context,
+                        icon: Icons.add_circle_outline,
+                        title: 'Nova Solicitação',
+                        subtitle: 'Solicitar verificação',
+                        color: Colors.blue,
+                        onTap: () => context.go('/request-form'),
+                      ),
+                      _buildActionCard(
+                        context,
+                        icon: Icons.list_alt,
+                        title: 'Minhas Solicitações',
+                        subtitle: 'Ver histórico',
+                        color: Colors.green,
+                        onTap: () => context.go('/my-requests'),
+                      ),
+                      _buildActionCard(
+                        context,
+                        icon: Icons.payment,
+                        title: 'Pagamentos',
+                        subtitle: 'Gerenciar pagamentos',
+                        color: Colors.orange,
+                        onTap: () => context.go('/payment'),
+                      ),
+                      _buildActionCard(
+                        context,
+                        icon: Icons.person,
+                        title: 'Perfil',
+                        subtitle: 'Editar informações',
+                        color: Colors.purple,
+                        onTap: () => context.go('/profile'),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Solicitações recentes
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Solicitações Recentes',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/my-requests'),
+                        child: const Text('Ver todas'),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  Consumer<RequestProvider>(
+                    builder: (context, requestProvider, child) {
+                      if (requestProvider.isLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      
+                      if (requestProvider.requests.isEmpty) {
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.inbox_outlined,
+                                  size: 64,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Nenhuma solicitação ainda',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Crie sua primeira solicitação de verificação',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey[500],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () => context.go('/request-form'),
+                                  child: const Text('Nova Solicitação'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      final recentRequests = requestProvider.requests.take(3).toList();
+                      
+                      return Column(
+                        children: recentRequests.map((request) {
+                          return _buildRequestCard(context, request);
+                        }).toList(),
+                      );
+                    },
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 16),
-              
-              Consumer<RequestProvider>(
-                builder: (context, requestProvider, child) {
-                  if (requestProvider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  
-                  if (requestProvider.requests.isEmpty) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Nenhuma solicitação ainda',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Crie sua primeira solicitação de verificação',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[500],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => context.go('/request-form'),
-                              child: const Text('Nova Solicitação'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  
-                  final recentRequests = requestProvider.requests.take(3).toList();
-                  
-                  return Column(
-                    children: recentRequests.map((request) {
-                      return _buildRequestCard(context, request);
-                    }).toList(),
-                  );
-                },
-              ),
-            ],
+            ),
           ),
-        ),
+          if (_showLoginPrompt)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.4),
+                child: Center(
+                  child: Material(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: 320,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 48, color: Colors.blue),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Faça login para acessar todos os recursos do Confirme Aki!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _openLogin,
+                            child: const Text('Fazer login'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _showLoginPrompt = false;
+                              });
+                            },
+                            child: const Text('Fechar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

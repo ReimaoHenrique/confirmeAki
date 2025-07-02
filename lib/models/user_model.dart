@@ -3,18 +3,22 @@ class User {
   final String name;
   final String email;
   final String phone;
-  final String? profileImage;
+  final String? avatar;
+  final String? role;
+  final String? status;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? lastLogin;
 
   User({
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
-    this.profileImage,
+    this.avatar,
+    this.role,
+    this.status,
     required this.createdAt,
-    required this.updatedAt,
+    this.lastLogin,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -23,9 +27,11 @@ class User {
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
-      profileImage: json['profile_image'],
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(json['updated_at'] ?? DateTime.now().toIso8601String()),
+      avatar: json['avatar'],
+      role: json['role'],
+      status: json['status'],
+      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      lastLogin: json['lastLogin'] != null ? DateTime.parse(json['lastLogin']) : null,
     );
   }
 
@@ -35,9 +41,11 @@ class User {
       'name': name,
       'email': email,
       'phone': phone,
-      'profile_image': profileImage,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'avatar': avatar,
+      'role': role,
+      'status': status,
+      'createdAt': createdAt.toIso8601String(),
+      'lastLogin': lastLogin?.toIso8601String(),
     };
   }
 
@@ -46,18 +54,22 @@ class User {
     String? name,
     String? email,
     String? phone,
-    String? profileImage,
+    String? avatar,
+    String? role,
+    String? status,
     DateTime? createdAt,
-    DateTime? updatedAt,
+    DateTime? lastLogin,
   }) {
     return User(
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      profileImage: profileImage ?? this.profileImage,
+      avatar: avatar ?? this.avatar,
+      role: role ?? this.role,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      lastLogin: lastLogin ?? this.lastLogin,
     );
   }
 
