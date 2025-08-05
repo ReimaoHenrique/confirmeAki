@@ -9,6 +9,23 @@ class AuthService {
   // Em produção, estas chamadas serão feitas para o backend real
 
   Future<Map<String, dynamic>> login(String email, String password) async {
+    // Usuário de teste local
+    if (email == 'user@test.com' && password == '123456') {
+      final user = User(
+        id: 'test_user',
+        name: 'Usuário de Teste',
+        email: email,
+        phone: '11999999999',
+        createdAt: DateTime.now().subtract(const Duration(days: 10)),
+      );
+      return {
+        'success': true,
+        'user': user,
+        'token': 'fake_jwt_token_test_user',
+        'message': 'Login de teste bem-sucedido',
+      };
+    }
+
     try {
       final response = await http.post(
         Uri.parse('https://jvdpz4zf-3000.brs.devtunnels.ms/api/auth/login'),

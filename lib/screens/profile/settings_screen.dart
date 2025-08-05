@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -79,6 +81,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             
+            const SizedBox(height: 32),
+
+            Text(
+              'Aparência',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  return SwitchListTile(
+                    title: const Text('Modo escuro'),
+                    subtitle: const Text('Ativar/desativar tema escuro'),
+                    value: themeProvider.themeMode == ThemeMode.dark,
+                    onChanged: (value) {
+                      themeProvider.toggleTheme(value);
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            Text(
+              'Carteira',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.account_balance_wallet_outlined),
+                    title: const Text('Minha Carteira'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => context.go('/wallet'),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.account_balance_outlined),
+                    title: const Text('Contas Bancárias'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => context.go('/bank-accounts'),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 32),
             
             Text(

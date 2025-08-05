@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/request_provider.dart';
 import '../../models/request_model.dart';
+import '../../widgets/widgets.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,7 +16,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _showLoginPrompt = false;
+  bool _showLoginPrompt = true;
+  LatLng? _currentPosition;
+  String? _locationError;
 
   @override
   void initState() {
@@ -27,6 +32,44 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     });
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _locationError = 'Serviço de localização desativado';
+        });
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _locationError = 'Permissão de localização negada';
+          });
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _locationError = 'Permissão de localização permanentemente negada';
+        });
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+        _locationError = null;
+      });
+    } catch (e) {
+      setState(() {
+        _locationError = 'Erro ao obter localização: $e';
+      });
+    }
   }
 
   void _openLogin() {
@@ -126,56 +169,57 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, child) {
-                      final isVisitor = !authProvider.isAuthenticated;
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                child: Text(
-                                  isVisitor ? 'V' : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                  if (_currentPosition != null)
+                    SizedBox(
+                      height: 220,
+                      child: Consumer<RequestProvider>(
+                        builder: (context, requestProvider, child) {
+                          final requestsNearby = requestProvider.requests.where((req) {
+                            if (req.latitude == null || req.longitude == null) return false;
+                            final distance = Geolocator.distanceBetween(
+                              _currentPosition!.latitude,
+                              _currentPosition!.longitude,
+                              req.latitude!,
+                              req.longitude!,
+                            );
+                            return distance <= 5000; // 5km
+                          }).toList();
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: GoogleMap(
+                              initialCameraPosition: CameraPosition(
+                                target: _currentPosition!,
+                                zoom: 14,
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isVisitor ? 'Olá, visitante!' : 'Olá, Usuário!',
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      isVisitor
-                                          ? 'Faça login para acessar todos os recursos.'
-                                          : 'Como posso ajudá-lo hoje?',
-                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                            color: Colors.grey[600],
-                                          ),
-                                    ),
-                                  ],
+                              myLocationEnabled: true,
+                              markers: {
+                                Marker(
+                                  markerId: const MarkerId('me'),
+                                  position: _currentPosition!,
+                                  infoWindow: const InfoWindow(title: 'Você'),
+                                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  
+                                ...requestsNearby.map((req) => Marker(
+                                  markerId: MarkerId(req.id),
+                                  position: LatLng(req.latitude!, req.longitude!),
+                                  infoWindow: InfoWindow(title: req.title, snippet: req.address),
+                                )),
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  else if (_locationError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(_locationError!, style: const TextStyle(color: Colors.red)),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
                   const SizedBox(height: 24),
                   
                   // Ações principais
@@ -196,32 +240,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSpacing: 16,
                     childAspectRatio: 1.2,
                     children: [
-                      _buildActionCard(
-                        context,
+                      ActionCard(
                         icon: Icons.add_circle_outline,
                         title: 'Nova Solicitação',
                         subtitle: 'Solicitar verificação',
                         color: Colors.blue,
                         onTap: () => context.go('/request-form'),
                       ),
-                      _buildActionCard(
-                        context,
+                      ActionCard(
                         icon: Icons.list_alt,
                         title: 'Minhas Solicitações',
                         subtitle: 'Ver histórico',
                         color: Colors.green,
                         onTap: () => context.go('/my-requests'),
                       ),
-                      _buildActionCard(
-                        context,
-                        icon: Icons.payment,
-                        title: 'Pagamentos',
-                        subtitle: 'Gerenciar pagamentos',
+                      ActionCard(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: 'Carteira',
+                        subtitle: 'Ver saldo e extrato',
                         color: Colors.orange,
-                        onTap: () => context.go('/payment'),
+                        onTap: () => context.go('/wallet'),
                       ),
-                      _buildActionCard(
-                        context,
+                      ActionCard(
                         icon: Icons.person,
                         title: 'Perfil',
                         subtitle: 'Editar informações',
@@ -255,12 +295,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   Consumer<RequestProvider>(
                     builder: (context, requestProvider, child) {
                       if (requestProvider.isLoading) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return const Center(child: CircularProgressIndicator());
                       }
                       
-                      if (requestProvider.requests.isEmpty) {
+                      final recentRequests = requestProvider.requests.take(3).toList();
+                      
+                      if (recentRequests.isEmpty) {
                         return Card(
                           child: Padding(
                             padding: const EdgeInsets.all(32.0),
@@ -273,23 +313,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'Nenhuma solicitação ainda',
+                                  'Nenhuma solicitação encontrada',
                                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: Colors.grey[600],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Crie sua primeira solicitação de verificação',
+                                  'Crie sua primeira solicitação para começar',
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: Colors.grey[500],
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
-                                ElevatedButton(
+                                ElevatedButton.icon(
                                   onPressed: () => context.go('/request-form'),
-                                  child: const Text('Nova Solicitação'),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Nova Solicitação'),
                                 ),
                               ],
                             ),
@@ -297,12 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       }
                       
-                      final recentRequests = requestProvider.requests.take(3).toList();
-                      
                       return Column(
-                        children: recentRequests.map((request) {
-                          return _buildRequestCard(context, request);
-                        }).toList(),
+                        children: recentRequests.map((request) => RequestCard(
+                          request: request,
+                          onTap: () => context.go('/request-details/${request.id}'),
+                        )).toList(),
                       );
                     },
                   ),
@@ -311,51 +351,46 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (_showLoginPrompt)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.4),
-                child: Center(
-                  child: Material(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 320,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Card(
+                  margin: const EdgeInsets.all(32),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.login,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Bem-vindo ao Confirme Aki!',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.lock_outline, size: 48, color: Colors.blue),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Faça login para acessar todos os recursos do Confirme Aki!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Faça login para acessar todas as funcionalidades',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
                           ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
                             onPressed: _openLogin,
-                            child: const Text('Fazer login'),
+                            child: const Text('Fazer Login'),
                           ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _showLoginPrompt = false;
-                              });
-                            },
-                            child: const Text('Fechar'),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -366,170 +401,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 32,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRequestCard(BuildContext context, Request request) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => context.go('/request-details/${request.id}'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      request.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(request.status).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      request.statusText,
-                      style: TextStyle(
-                        color: _getStatusColor(request.status),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                request.description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 16,
-                    color: Colors.grey[500],
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      request.address,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[500],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getStatusColor(RequestStatus status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return Colors.orange;
-      case RequestStatus.inProgress:
-        return Colors.blue;
-      case RequestStatus.completed:
-        return Colors.green;
-      case RequestStatus.cancelled:
-        return Colors.red;
-    }
-  }
-
   void _showLogoutDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sair'),
-        content: const Text('Tem certeza que deseja sair da sua conta?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await Provider.of<AuthProvider>(context, listen: false).logout();
-              if (mounted) {
-                context.go('/login');
-              }
-            },
-            child: const Text('Sair'),
-          ),
-        ],
-      ),
+      builder: (context) => const LogoutDialog(),
     );
   }
 }

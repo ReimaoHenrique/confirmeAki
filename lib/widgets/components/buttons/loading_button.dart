@@ -105,5 +105,4 @@ class LoadingOutlinedButton extends StatelessWidget {
       ),
     );
   }
-}
-
+} 

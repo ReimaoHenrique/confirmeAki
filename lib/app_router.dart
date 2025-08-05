@@ -8,9 +8,10 @@ import 'screens/requests/request_form_screen.dart';
 import 'screens/requests/my_requests_screen.dart';
 import 'screens/requests/request_details_screen.dart';
 import 'screens/chat/chat_screen.dart';
-import 'screens/payment/payment_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/settings_screen.dart';
+import 'screens/profile/wallet_screen.dart';
+import 'screens/profile/bank_accounts_screen.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
@@ -75,13 +76,6 @@ class AppRouter {
         },
       ),
       
-      // Payment Route
-      GoRoute(
-        path: '/payment',
-        name: 'payment',
-        builder: (context, state) => const PaymentScreen(),
-      ),
-      
       // Profile Routes
       GoRoute(
         path: '/profile',
@@ -93,6 +87,14 @@ class AppRouter {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: '/bank-accounts',
+        builder: (context, state) => const BankAccountsScreen(),
       ),
     ],
   );

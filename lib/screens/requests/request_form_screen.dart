@@ -3,8 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/request_provider.dart';
 import '../../models/request_model.dart';
-import '../../widgets/custom_text_field.dart';
-import '../../widgets/loading_button.dart';
+import '../../widgets/widgets.dart';
 
 class RequestFormScreen extends StatefulWidget {
   const RequestFormScreen({super.key});
@@ -21,6 +20,7 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
   
   RequestType _selectedType = RequestType.property;
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -31,24 +31,31 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final requestProvider = Provider.of<RequestProvider>(context, listen: false);
+      
       final request = Request(
-        id: '', // Será gerado pelo serviço
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
         userId: '1', // ID do usuário atual
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        address: _addressController.text.trim(),
+        title: _titleController.text,
+        description: _descriptionController.text,
         type: _selectedType,
+        address: _addressController.text,
         status: RequestStatus.pending,
         desiredDate: _selectedDate,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      final requestProvider = Provider.of<RequestProvider>(context, listen: false);
-      final success = await requestProvider.createRequest(request);
+      await requestProvider.createRequest(request);
 
-      if (success && mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Solicitação criada com sucesso!'),
@@ -56,14 +63,35 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
           ),
         );
         context.go('/my-requests');
-      } else if (mounted) {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(requestProvider.error ?? 'Erro ao criar solicitação'),
+            content: Text('Erro ao criar solicitação: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getTypeDisplayName(RequestType type) {
+    switch (type) {
+      case RequestType.property:
+        return 'Imóvel';
+      case RequestType.product:
+        return 'Produto';
+      case RequestType.service:
+        return 'Serviço';
+      case RequestType.other:
+        return 'Outro';
     }
   }
 
@@ -126,42 +154,38 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
               
               Text(
                 'Tipo de Verificação',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               
-              DropdownButtonFormField<RequestType>(
-                value: _selectedType,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: RequestType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(_getTypeText(type)),
+              // Seleção de tipo
+              Wrap(
+                spacing: 8,
+                children: RequestType.values.map((type) {
+                  final isSelected = _selectedType == type;
+                  return ChoiceChip(
+                    label: Text(_getTypeDisplayName(type)),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedType = type;
+                        });
+                      }
+                    },
                   );
                 }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedType = value;
-                    });
-                  }
-                },
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               
+              // Data agendada
               Text(
-                'Data Desejada',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
+                'Data Agendada',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
@@ -187,13 +211,13 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      Icon(Icons.calendar_today, color: Colors.grey[600]),
+                      const SizedBox(width: 12),
                       Text(
                         '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const Icon(Icons.calendar_today),
                     ],
                   ),
                 ),
@@ -201,39 +225,17 @@ class _RequestFormScreenState extends State<RequestFormScreen> {
               
               const SizedBox(height: 32),
               
-              Consumer<RequestProvider>(
-                builder: (context, requestProvider, child) {
-                  return LoadingButton(
-                    onPressed: _handleSubmit,
-                    isLoading: requestProvider.isLoading,
-                    child: const Text(
-                      'Criar Solicitação',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                },
+              // Botão de envio
+              LoadingButton(
+                onPressed: _isLoading ? null : _handleSubmit,
+                isLoading: _isLoading,
+                child: const Text('Criar Solicitação'),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _getTypeText(RequestType type) {
-    switch (type) {
-      case RequestType.property:
-        return 'Imóvel';
-      case RequestType.product:
-        return 'Produto';
-      case RequestType.service:
-        return 'Serviço';
-      case RequestType.other:
-        return 'Outro';
-    }
   }
 }
 
